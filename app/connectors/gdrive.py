@@ -32,6 +32,21 @@ def _save_metadata_cache(cache: dict) -> None:
         json.dump(cache, f, indent=2)
 
 def _build_drive_service(service_account_path: str):
+    import os
+    if not os.path.exists(service_account_path):
+        import streamlit as st
+        if "GOOGLE_SERVICE_ACCOUNT_JSON" in st.secrets:
+            try:
+                import json
+                info = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"])
+            except Exception:
+                info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
+                if isinstance(info, str):
+                    import json
+                    info = json.loads(info)
+            creds = service_account.Credentials.from_service_account_info(dict(info), scopes=SCOPES)
+            return build("drive", "v3", credentials=creds, cache_discovery=False)
+
     creds = service_account.Credentials.from_service_account_file(
         service_account_path, scopes=SCOPES
     )

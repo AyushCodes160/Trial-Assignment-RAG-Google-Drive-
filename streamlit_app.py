@@ -363,8 +363,8 @@ if do_sync_drive or do_sync_git or do_sync_web or do_sync_file:
         
         with st.sidebar:
             with st.spinner("Fetching data..."):
-                if do_sync_drive:
-                    if not os.path.exists(sa_path):
+                if selected_tab == "Drive" and do_sync_drive:
+                    if not os.path.exists(sa_path) and "GOOGLE_SERVICE_ACCOUNT_JSON" not in st.secrets:
                         raise ValueError(f"Service account file not found: {sa_path}")
                     from app.connectors.gdrive import sync_google_drive, get_all_cached_files
                     sync_google_drive(sa_path, folder_id=folder_id or None, progress_callback=_progress_cb)
