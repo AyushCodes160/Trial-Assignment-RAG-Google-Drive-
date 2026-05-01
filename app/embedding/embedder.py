@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 MODEL_NAME = "all-MiniLM-L6-v2"
 EMBEDDING_CACHE_DIR = "data/embedding_cache"
 DEFAULT_BATCH_SIZE = 64
+NORMALIZE_EMBEDDINGS = True
 
 _model = None                  
 
@@ -73,7 +74,7 @@ def embed_texts(
             batch_size=batch_size,
             show_progress_bar=False,
             convert_to_numpy=True,
-            normalize_embeddings=True,
+            normalize_embeddings=NORMALIZE_EMBEDDINGS,
         )
         for idx, emb in zip(uncached_indices, new_embeddings):
             placeholder[idx] = emb
@@ -89,7 +90,7 @@ def embed_query(query: str) -> np.ndarray:
     emb = model.encode(
         [query],
         convert_to_numpy=True,
-        normalize_embeddings=True,
+        normalize_embeddings=NORMALIZE_EMBEDDINGS,
         show_progress_bar=False,
     )
     return emb[0].astype(np.float32)
