@@ -1,0 +1,48 @@
+# ─────────────────────────────────────────────
+# Core Python / Streamlit
+# ─────────────────────────────────────────────
+streamlit>=1.35.0
+python-dotenv>=1.0.0
+
+# ─────────────────────────────────────────────
+# Google Drive API
+# ─────────────────────────────────────────────
+google-api-python-client>=2.131.0
+google-auth>=2.29.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+
+# ─────────────────────────────────────────────
+# PDF Extraction
+# ─────────────────────────────────────────────
+PyMuPDF>=1.24.0         # Primary PDF extractor (fitz)
+pdfplumber>=0.11.0,<0.12.0      # Fallback PDF extractor
+
+# ─────────────────────────────────────────────
+# Tokenisation & Chunking
+# ─────────────────────────────────────────────
+tiktoken>=0.7.0
+
+# ─────────────────────────────────────────────
+# Embeddings (local, free)
+# ─────────────────────────────────────────────
+sentence-transformers>=3.0.0
+torch>=2.2.0            # CPU-only wheel is fine
+transformers>=4.41.0
+
+# ─────────────────────────────────────────────
+# Vector Store
+# ─────────────────────────────────────────────
+faiss-cpu>=1.8.0
+
+# ─────────────────────────────────────────────
+# LLM Backends (all optional — at least one required)
+# ─────────────────────────────────────────────
+groq>=0.9.0             # Groq free API (LLaMA-3)  — set GROQ_API_KEY
+requests>=2.31.0        # HuggingFace Inference API — set HF_API_TOKEN
+                        # Ollama: install separately from https://ollama.com
+
+# ─────────────────────────────────────────────
+# Utilities
+# ─────────────────────────────────────────────
+numpy>=1.26.0
