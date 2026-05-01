@@ -13,6 +13,7 @@
 
 | Feature | Details |
 |---|---|
+| **Multi-Source Ingestion** | Support for Web Scraping, GitHub Repo cloning, and File Uploads directly in the UI |
 | **Google Drive Sync** | PDFs, Google Docs (exported as PDF), and TXT files via Service Account |
 | **Incremental Sync** | Skips files already indexed — only re-embeds changed documents |
 | **Smart Chunking** | 700-token chunks with 100-token overlap (tiktoken `cl100k_base`) |
@@ -20,8 +21,9 @@
 | **Embedding Cache** | Per-chunk disk cache prevents redundant re-encoding across restarts |
 | **FAISS Vector Store** | Cosine-similarity search with persistent index and metadata sidecar |
 | **Multi-LLM Support** | Groq (LLaMA-3) → HuggingFace Inference → Ollama (automatic fallback) |
+| **Conversational Memory**| RAG pipeline remembers chat history for follow-up context bridging |
 | **Grounded Answers** | LLM is strictly prompted to answer only from document context |
-| **Rich UI** | Dark glassmorphism Streamlit UI with source citations and chunk previews |
+| **Rich UI** | Dynamic glassmorphism Streamlit UI that shifts branding based on active source |
 
 ---
 
@@ -62,10 +64,13 @@
 │   ├── __init__.py
 │   ├── connectors/
 │   │   ├── __init__.py
-│   │   └── gdrive.py          # Google Drive API connector
+│   │   ├── gdrive.py          # Google Drive API connector
+│   │   ├── github.py          # GitHub repo cloner
+│   │   ├── web.py             # Web page scraper
+│   │   └── upload.py          # Local file upload handler
 │   ├── processing/
 │   │   ├── __init__.py
-│   │   ├── parser.py          # PDF/TXT text extractor
+│   │   ├── parser.py          # PDF/TXT/DOCX text extractor
 │   │   └── chunker.py         # Token-aware chunker
 │   ├── embedding/
 │   │   ├── __init__.py
