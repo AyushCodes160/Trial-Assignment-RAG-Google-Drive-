@@ -66,4 +66,6 @@ def extract_text(local_path: str, mime_type: str = "") -> str:
         logger.warning("Unsupported file type for: %s", local_path)
         return ""
 
-    return _clean_text(raw)
+    cleaned = _clean_text(raw)
+    logger.info("Extracted %d chars from: %s", len(cleaned), local_path)
+    return cleaned
