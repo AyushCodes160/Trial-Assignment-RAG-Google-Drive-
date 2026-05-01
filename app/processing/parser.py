@@ -12,6 +12,13 @@ def _extract_pdf_pymupdf(path: str) -> str:
             text_parts.append(page.get_text("text"))
     return "\n".join(text_parts)
 
+def _extract_docx(path: str) -> str:
+    import docx
+    
+    doc = docx.Document(path)
+    text_parts = [para.text for para in doc.paragraphs if para.text.strip()]
+    return "\n".join(text_parts)
+
 def _extract_pdf_pdfplumber(path: str) -> str:
     import pdfplumber
 
@@ -60,6 +67,14 @@ def extract_text(local_path: str, mime_type: str = "") -> str:
             logger.debug("Read TXT: %s", local_path)
         except Exception as e:
             logger.error("Failed to read TXT file: %s", e)
+            return ""
+
+    elif path_lower.endswith(".docx") or "wordprocessingml" in mime_type:
+        try:
+            raw = _extract_docx(local_path)
+            logger.debug("Extracted DOCX: %s", local_path)
+        except Exception as e:
+            logger.error("Failed to extract DOCX file: %s", e)
             return ""
 
     else:
