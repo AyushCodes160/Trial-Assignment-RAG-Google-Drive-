@@ -227,6 +227,7 @@ def _init_state():
         "indexed_files": 0,
         "last_sync_time": None,
         "llm_backend": "—",
+        "app_mode": "Drive",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -235,12 +236,21 @@ def _init_state():
 _init_state()
 
 with st.sidebar:
+    app_mode = st.session_state.get("app_mode", "Drive")
+    mode_titles = {
+        "Drive": ("🗂️ DriveChat", "Personal AI over Google Drive"),
+        "GitHub": ("🐙 GitChat", "Personal AI over GitHub Repos"),
+        "Web": ("🌐 WebChat", "Personal AI over Web Links"),
+        "Upload": ("📄 DocChat", "Personal AI over Local Documents"),
+    }
+    title, subtitle = mode_titles.get(app_mode, mode_titles["Drive"])
+    
     st.markdown(
-        "<div style='font-size:1.4rem;font-weight:700;color:#a78bfa;margin-bottom:0.5rem'>🗂️ DriveChat</div>",
+        f"<div style='font-size:1.4rem;font-weight:700;color:#a78bfa;margin-bottom:0.5rem'>{title}</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<div style='font-size:0.82rem;color:#8b949e;margin-bottom:1.5rem'>Personal AI over Google Drive</div>",
+        f"<div style='font-size:0.82rem;color:#8b949e;margin-bottom:1.5rem'>{subtitle}</div>",
         unsafe_allow_html=True,
     )
     st.divider()
@@ -264,12 +274,34 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("### 🔄 Google Drive Sync")
-    sync_col1, sync_col2 = st.columns(2)
-    with sync_col1:
-        do_sync = st.button("▶ Sync Drive", use_container_width=True)
-    with sync_col2:
-        do_clear = st.button("🗑 Clear Index", use_container_width=True)
+    st.markdown("### 📥 Add Knowledge")
+    selected_tab = st.radio("Select Source", ["Drive", "GitHub", "Web", "Upload"], horizontal=True, label_visibility="collapsed", key="app_mode")
+    
+    if selected_tab == "Drive":
+        do_sync_drive = st.button("▶ Sync Drive", use_container_width=True)
+    else:
+        do_sync_drive = False
+        
+    if selected_tab == "GitHub":
+        repo_url_input = st.text_input("GitHub Repo URL", placeholder="https://github.com/...")
+        do_sync_git = st.button("▶ Clone & Sync", use_container_width=True)
+    else:
+        do_sync_git = False
+        
+    if selected_tab == "Web":
+        web_url_input = st.text_input("Web Page URL", placeholder="https://...")
+        do_sync_web = st.button("▶ Scrape Link", use_container_width=True)
+    else:
+        do_sync_web = False
+        
+    if selected_tab == "Upload":
+        uploaded_docs = st.file_uploader("Upload Files", accept_multiple_files=True, type=["pdf", "txt", "docx"])
+        do_sync_file = st.button("▶ Process Files", use_container_width=True)
+    else:
+        do_sync_file = False
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+    do_clear = st.button("🗑 Clear All Knowledge", use_container_width=True)
 
     sync_status_placeholder = st.empty()
 
@@ -310,82 +342,93 @@ if do_clear:
     st.session_state.indexed_files = 0
     st.session_state.chat_history = []
     sync_status_placeholder.markdown(
-        "<div class='status-warning'>⚠️ Index cleared. Sync Google Drive to rebuild.</div>",
+        "<div class='status-warning'>⚠️ Knowledge base cleared.</div>",
         unsafe_allow_html=True,
     )
 
-if do_sync:
-    if not os.path.exists(sa_path):
-        sync_status_placeholder.markdown(
-            f"<div class='status-error'>❌ Service account file not found: <code>{sa_path}</code></div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        progress_bar = st.sidebar.progress(0, text="Connecting to Google Drive…")
-        progress_text = st.sidebar.empty()
+if do_sync_drive or do_sync_git or do_sync_web or do_sync_file:
+    progress_bar = st.sidebar.progress(0, text="Initializing...")
+    progress_text = st.sidebar.empty()
 
-        def _progress_cb(current, total, name, skipped=False):
-            pct = int(current / total * 100)
-            label = f"{'⏭ Skipping' if skipped else '⬇ Downloading'}: {name[:40]}"
-            progress_bar.progress(pct / 100, text=label)
-            progress_text.caption(f"{current}/{total} files processed")
+    def _progress_cb(current, total, name, skipped=False):
+        pct = int(current / total * 100) if total > 0 else 0
+        label = f"{'⏭ Skipping' if skipped else '⬇ Processing'}: {name[:40]}"
+        progress_bar.progress(pct / 100, text=label)
+        progress_text.caption(f"{current}/{total} processed")
 
-        try:
-            from app.connectors.gdrive import sync_google_drive
-            from app.rag.pipeline import index_documents, get_vector_store
+    try:
+        from app.rag.pipeline import index_documents, get_vector_store
+        new_docs = []
+        new_chunks = 0
+        
+        with st.sidebar:
+            with st.spinner("Fetching data..."):
+                if do_sync_drive:
+                    if not os.path.exists(sa_path):
+                        raise ValueError(f"Service account file not found: {sa_path}")
+                    from app.connectors.gdrive import sync_google_drive, get_all_cached_files
+                    sync_google_drive(sa_path, folder_id=folder_id or None, progress_callback=_progress_cb)
+                    new_docs = get_all_cached_files()
+                    
+                elif do_sync_git:
+                    from app.connectors.github import sync_github_repo
+                    new_docs = sync_github_repo(repo_url_input, progress_callback=_progress_cb)
+                    
+                elif do_sync_web:
+                    from app.connectors.web import sync_web_link
+                    new_docs = sync_web_link(web_url_input, progress_callback=_progress_cb)
+                    
+                elif do_sync_file:
+                    from app.connectors.upload import sync_uploaded_files
+                    new_docs = sync_uploaded_files(uploaded_docs, progress_callback=_progress_cb)
 
+        progress_bar.empty()
+        progress_text.empty()
+
+        if new_docs:
             with st.sidebar:
-                with st.spinner("Syncing Google Drive…"):
-                    new_files = sync_google_drive(
-                        sa_path,
-                        folder_id=folder_id or None,
-                        progress_callback=_progress_cb,
-                    )
+                with st.spinner("Indexing documents..."):
+                    new_chunks = index_documents(new_docs)
 
-            progress_bar.empty()
-            progress_text.empty()
+        store = get_vector_store()
+        st.session_state.total_vectors = store.total_vectors
+        st.session_state.indexed_files = len(store.get_indexed_doc_ids())
+        st.session_state.last_sync_time = time.strftime("%H:%M:%S")
 
-            from app.connectors.gdrive import get_all_cached_files
-            all_cached = get_all_cached_files()
-            with st.sidebar:
-                with st.spinner(f"Indexing documents…"):
-                    new_chunks = index_documents(all_cached)
-
-            store = get_vector_store()
-            st.session_state.total_vectors = store.total_vectors
-            st.session_state.indexed_files = len(store.get_indexed_doc_ids())
-            st.session_state.last_sync_time = time.strftime("%H:%M:%S")
-
-            if new_files:
-                sync_status_placeholder.markdown(
-                    f"<div class='status-success'>✅ Synced {len(new_files)} new file(s) → "
-                    f"{new_chunks:,} chunks indexed.</div>",
-                    unsafe_allow_html=True,
-                )
-            elif new_chunks > 0:
-                sync_status_placeholder.markdown(
-                    f"<div class='status-success'>✅ Re-indexed {new_chunks:,} chunks from {len(all_cached)} cached file(s).</div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                sync_status_placeholder.markdown(
-                    "<div class='status-warning'>✓ All files are up to date and fully indexed.</div>",
-                    unsafe_allow_html=True,
-                )
-
-        except Exception as exc:
-            progress_bar.empty()
-            progress_text.empty()
+        if new_chunks > 0:
             sync_status_placeholder.markdown(
-                f"<div class='status-error'>❌ Sync failed: {exc}</div>",
+                f"<div class='status-success'>✅ Added {len(new_docs)} source(s) → "
+                f"{new_chunks:,} new chunks indexed.</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            sync_status_placeholder.markdown(
+                "<div class='status-warning'>✓ Source processed but no new text was indexed.</div>",
                 unsafe_allow_html=True,
             )
 
+    except Exception as exc:
+        progress_bar.empty()
+        progress_text.empty()
+        sync_status_placeholder.markdown(
+            f"<div class='status-error'>❌ Sync failed: {exc}</div>",
+            unsafe_allow_html=True,
+        )
+
+mode_descriptions = {
+    "Drive": "Your Personal AI Assistant — powered by your Google Drive documents",
+    "GitHub": "Your Personal AI Assistant — powered by your GitHub repositories",
+    "Web": "Your Personal AI Assistant — powered by Web Links",
+    "Upload": "Your Personal AI Assistant — powered by Local Documents",
+}
+main_title = st.session_state.get("app_mode", "Drive")
+title_icon = {"Drive": "🗂️ DriveChat", "GitHub": "🐙 GitChat", "Web": "🌐 WebChat", "Upload": "📄 DocChat"}[main_title]
+
 st.markdown(
-    """
+    f"""
     <div class="header-strip">
-        <h1>🗂️ DriveChat</h1>
-        <p>Your Personal AI Assistant — powered by your Google Drive documents</p>
+        <h1>{title_icon}</h1>
+        <p>{mode_descriptions[main_title]}</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -418,9 +461,16 @@ for msg in st.session_state.chat_history:
         )
     else:
         answer_html = msg["content"].replace("\n", "<br>")
+        
+        mode_titles = {
+            "Drive": "🗂️ DriveChat", "GitHub": "🐙 GitChat", 
+            "Web": "🌐 WebChat", "Upload": "📄 DocChat"
+        }
+        bot_name = mode_titles.get(st.session_state.get("app_mode", "Drive"), "🤖 AI").split()[1]
+        
         st.markdown(
             f"<div class='chat-bubble chat-assistant'>"
-            f"<div class='chat-label'>🤖 DriveChat</div>{answer_html}</div>",
+            f"<div class='chat-label'>🤖 {bot_name}</div>{answer_html}</div>",
             unsafe_allow_html=True,
         )
 
@@ -479,6 +529,7 @@ if submitted and user_input.strip():
         result = answer_question(
             user_input.strip(),
             top_k=st.session_state.get("top_k_slider", 5),
+            chat_history=st.session_state.chat_history
         )
 
     st.session_state.llm_backend = result.get("backend", "—")
