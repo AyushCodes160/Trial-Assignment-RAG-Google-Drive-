@@ -73,7 +73,7 @@ def list_drive_files(
             break
 
     logger.info("Found %d supported files in Google Drive.", len(files))
-    return files
+    return [f for f in files if f.get("name")]
 
 def download_file(
     service_account_path: str,
