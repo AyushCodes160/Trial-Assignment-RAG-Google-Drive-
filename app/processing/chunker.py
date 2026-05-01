@@ -3,8 +3,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CHUNK_SIZE = 700            
-DEFAULT_CHUNK_OVERLAP = 100          
+DEFAULT_CHUNK_SIZE = 700
+DEFAULT_CHUNK_OVERLAP = 100
+CHUNK_SETTINGS = {\"size\": DEFAULT_CHUNK_SIZE, \"overlap\": DEFAULT_CHUNK_OVERLAP}
 
 def _get_encoder():
     try:
