@@ -1,6 +1,6 @@
 .env
 service_account.json
-data/
+data/*.json
 __pycache__/
 *.pyc
 *.pyo
