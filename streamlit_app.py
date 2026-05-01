@@ -297,7 +297,7 @@ with st.sidebar:
         f"<div style='font-size:0.78rem;color:#8b949e'>LLM: <b style='color:#a78bfa'>{st.session_state.llm_backend}</b></div>",
         unsafe_allow_html=True,
     )
-    st.caption("Built with ❤️ using Streamlit + FAISS + SentenceTransformers")
+    st.caption("Built with ❤️ · Streamlit + FAISS + SentenceTransformers + Groq")
 
 if do_clear:
     from app.rag.pipeline import get_vector_store
