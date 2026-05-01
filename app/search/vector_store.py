@@ -110,3 +110,14 @@ class VectorStore:
 
     def __repr__(self) -> str:
         return f"VectorStore(vectors={self.total_vectors}, dim={self.embedding_dim})"
+
+    def list_documents(self) -> list[dict]:
+        seen = set()
+        docs = []
+        for m in self.metadata:
+            did = m.get("doc_id", "")
+            if did not in seen:
+                seen.add(did)
+                docs.append({"doc_id": did, "file_name": m.get("file_name", ""), "source": m.get("source", "")})
+        return docs
+
