@@ -5,6 +5,12 @@ import pickle
 from pathlib import Path
 from typing import Optional
 
+os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+os.environ.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -19,8 +25,14 @@ _model = None
 def _get_model():
     global _model
     if _model is None:
+        try:
+            import torch
+            if hasattr(torch.backends, "mps"):
+                torch.backends.mps.enabled = False
+        except Exception:
+            pass
         from sentence_transformers import SentenceTransformer
-        logger.info("Loading embedding model: %s", MODEL_NAME)
+        logger.info("Loading embedding model: %s on CPU", MODEL_NAME)
         _model = SentenceTransformer(MODEL_NAME, device="cpu")
         logger.info("Model loaded successfully.")
     return _model

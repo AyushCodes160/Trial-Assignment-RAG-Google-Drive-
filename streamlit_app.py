@@ -300,9 +300,12 @@ with st.sidebar:
     st.caption("Built with ❤️ · Streamlit + FAISS + SentenceTransformers + Groq")
 
 if do_clear:
+    import json
     from app.rag.pipeline import get_vector_store
     store = get_vector_store()
     store.clear()
+    if os.path.exists("data/metadata_cache.json"):
+        os.remove("data/metadata_cache.json")
     st.session_state.total_vectors = 0
     st.session_state.indexed_files = 0
     st.session_state.chat_history = []
@@ -342,28 +345,31 @@ if do_sync:
             progress_bar.empty()
             progress_text.empty()
 
+            from app.connectors.gdrive import get_all_cached_files
+            all_cached = get_all_cached_files()
+            with st.sidebar:
+                with st.spinner(f"Indexing documents…"):
+                    new_chunks = index_documents(all_cached)
+
+            store = get_vector_store()
+            st.session_state.total_vectors = store.total_vectors
+            st.session_state.indexed_files = len(store.get_indexed_doc_ids())
+            st.session_state.last_sync_time = time.strftime("%H:%M:%S")
+
             if new_files:
-                with st.sidebar:
-                    with st.spinner(f"Indexing {len(new_files)} new file(s)…"):
-                        new_chunks = index_documents(new_files)
-
-                store = get_vector_store()
-                st.session_state.total_vectors = store.total_vectors
-
-                st.session_state.indexed_files = len(store.get_indexed_doc_ids())
-                st.session_state.last_sync_time = time.strftime("%H:%M:%S")
-
                 sync_status_placeholder.markdown(
-                    f"<div class='status-success'>✅ Synced {len(new_files)} file(s) → "
-                    f"{new_chunks:,} new chunks indexed.</div>",
+                    f"<div class='status-success'>✅ Synced {len(new_files)} new file(s) → "
+                    f"{new_chunks:,} chunks indexed.</div>",
+                    unsafe_allow_html=True,
+                )
+            elif new_chunks > 0:
+                sync_status_placeholder.markdown(
+                    f"<div class='status-success'>✅ Re-indexed {new_chunks:,} chunks from {len(all_cached)} cached file(s).</div>",
                     unsafe_allow_html=True,
                 )
             else:
-                store = get_vector_store()
-                st.session_state.total_vectors = store.total_vectors
-                st.session_state.indexed_files = len(store.get_indexed_doc_ids())
                 sync_status_placeholder.markdown(
-                    "<div class='status-warning'>✓ All files are up to date. No new content to index.</div>",
+                    "<div class='status-warning'>✓ All files are up to date and fully indexed.</div>",
                     unsafe_allow_html=True,
                 )
 
