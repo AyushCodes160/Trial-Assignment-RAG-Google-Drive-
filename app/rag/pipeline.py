@@ -16,22 +16,33 @@ def get_vector_store() -> VectorStore:
     return _vector_store
 
 SYSTEM_PROMPT = (
-    "You are a precise document assistant. "
-    "Answer ONLY using the information provided in the context below. "
-    "If the answer is not found in the context, respond with exactly: "
+    "You are an AI document assistant. "
+    "Answer using the information provided in the context below. "
+    "If the user asks for a summary, summarize the provided context. "
+    "If the answer cannot be reasonably deduced from the context, respond with exactly: "
     "'Not found in documents.' "
-    "Do not add any information from outside the context."
+    "Do not hallucinate external facts."
 )
 
-def _build_user_prompt(question: str, context_chunks: list[dict]) -> str:
+def _build_user_prompt(question: str, context_chunks: list[dict], chat_history: list = None) -> str:
     context_text = "\n\n---\n\n".join(
         [
             f"[Source: {c.get('file_name', 'Unknown')}]\n{c['chunk_text']}"
             for c in context_chunks
         ]
     )
+    
+    history_text = ""
+    if chat_history:
+        # Only take last 4 messages to avoid token bloat
+        recent_history = chat_history[-4:]
+        history_text = "Chat History:\n" + "\n".join(
+            f"{msg['role'].capitalize()}: {msg['content']}" 
+            for msg in recent_history
+        ) + "\n\n"
+        
     return (
-        f"Context:\n{context_text}\n\n"
+        f"{history_text}Context:\n{context_text}\n\n"
         f"Question: {question}\n\n"
         "Answer:"
     )
@@ -121,6 +132,7 @@ def answer_question(
     question: str,
     top_k: int = 5,
     filter_source: Optional[str] = None,
+    chat_history: list = None,
 ) -> dict:
     store = get_vector_store()
 
@@ -132,7 +144,15 @@ def answer_question(
             "context_used": 0,
         }
 
-    query_emb = embed_query(question)
+    # Improve context retrieval for follow-ups like "explain more"
+    search_query = question
+    if chat_history and len(chat_history) >= 2:
+        # Get the last user question to append for semantic search
+        last_user_msg = next((m["content"] for m in reversed(chat_history[:-1]) if m["role"] == "user"), "")
+        if len(question.split()) <= 3: # If it's a short follow-up
+            search_query = f"{last_user_msg} {question}"
+            
+    query_emb = embed_query(search_query)
 
     chunks = store.search(query_emb, top_k=top_k, filter_source=filter_source)
     if not chunks:
@@ -143,7 +163,7 @@ def answer_question(
             "context_used": 0,
         }
 
-    prompt = _build_user_prompt(question, chunks)
+    prompt = _build_user_prompt(question, chunks, chat_history)
     answer, backend = _generate_answer(prompt, SYSTEM_PROMPT)
 
     seen = set()
@@ -175,7 +195,11 @@ def index_documents(documents: list[dict]) -> int:
             logger.debug("Skipping already-indexed doc: %s", doc["file_name"])
             continue
 
-        text = extract_text(doc["local_path"], doc.get("mime_type", ""))
+        if "text" in doc and doc["text"]:
+            text = doc["text"]
+        else:
+            text = extract_text(doc["local_path"], doc.get("mime_type", ""))
+            
         if not text:
             logger.warning("No text extracted from: %s", doc["file_name"])
             continue
