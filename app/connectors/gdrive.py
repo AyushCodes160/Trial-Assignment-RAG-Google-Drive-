@@ -35,20 +35,24 @@ def _build_drive_service(service_account_path: str):
     import os, json as _json
     if not os.path.exists(service_account_path):
         import streamlit as st
+        # Option 1: TOML section [gcp_service_account] — most reliable, no JSON parsing needed
+        if "gcp_service_account" in st.secrets:
+            info = dict(st.secrets["gcp_service_account"])
+            creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+            return build("drive", "v3", credentials=creds, cache_discovery=False)
+        # Option 2: Raw JSON string fallback
         if "GOOGLE_SERVICE_ACCOUNT_JSON" in st.secrets:
             raw = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
-            # Streamlit may parse TOML tables as AttrDict — convert directly
             if hasattr(raw, "to_dict"):
                 info = raw.to_dict()
             elif isinstance(raw, dict):
                 info = dict(raw)
             else:
-                # Raw string — fix doubly-escaped newlines in private_key before parsing
-                info = _json.loads(str(raw).replace("\\n", "\n"))
+                info = _json.loads(str(raw))
             creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
             return build("drive", "v3", credentials=creds, cache_discovery=False)
         raise FileNotFoundError(
-            "Service account not found. Add GOOGLE_SERVICE_ACCOUNT_JSON to Streamlit secrets."
+            "Google credentials not found. Add [gcp_service_account] section to Streamlit secrets."
         )
     creds = service_account.Credentials.from_service_account_file(
         service_account_path, scopes=SCOPES
