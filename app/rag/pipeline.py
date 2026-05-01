@@ -198,5 +198,5 @@ def index_documents(documents: list[dict]) -> int:
     store.add(embeddings, all_chunks)
     store.save()
 
-    logger.info("Indexed %d new chunks.", len(all_chunks))
+    logger.info("Indexed %d new chunks across %d documents.", len(all_chunks), len(documents))
     return len(all_chunks)
